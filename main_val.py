@@ -1,18 +1,12 @@
-import os
-import shutil
 import time
 
-import numpy as np
-import torch
 import torch.backends.cudnn as cudnn
-
 import torch.nn.parallel
 import torch.optim
-import torchvision
-from tensorboardX import SummaryWriter
 from torch.nn.utils import clip_grad_norm_
+from torch.utils.tensorboard import SummaryWriter
+
 from module import models_adv
-from opts.opts import args
 from utils.dataset_ucf101 import TSNDataSet
 from utils.transforms import *
 from utils.utils import *
@@ -41,15 +35,15 @@ def train(train_loader, model, criterion, optimizer, epoch, log, writer):
     end = time.time()
     n = 0
 
-    for i, (input,  target) in enumerate(train_loader):
+    for i, (input, target) in enumerate(train_loader):
         # measure data loading time
         data_time.update(time.time() - end)
 
-        target = target.cuda(async=True)
+        target = target.cuda(non_blocking=True)
         input_var = torch.autograd.Variable(input)
 
         if args.add_dg:
-            adv_target = target.cuda(async=True)
+            adv_target = target.cuda(non_blocking=True)
             adv_target = torch.autograd.Variable(adv_target)
             source_input = input
             source_input = torch.autograd.Variable(source_input, volatile=True)
@@ -125,12 +119,12 @@ def train(train_loader, model, criterion, optimizer, epoch, log, writer):
 
         if i % args.print_freq == 0:
             output = ('Epoch: [{0}][{1}/{2}], lr: {lr:.5f}\t'
-                    'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                    'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                    'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                    'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                        epoch, i, len(train_loader), batch_time=batch_time,
-                        loss=losses, top1=top1, top5=top5, lr=optimizer.param_groups[-1]['lr']))
+                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                epoch, i, len(train_loader), batch_time=batch_time,
+                loss=losses, top1=top1, top5=top5, lr=optimizer.param_groups[-1]['lr']))
             print(output)
             log.write(output + '\n')
             log.flush()
@@ -152,7 +146,7 @@ def validate(val_loader, model, criterion, log):
     end = time.time()
     for i, (input, target) in enumerate(val_loader):
         with torch.no_grad():
-            target = target.cuda(async=True)
+            target = target.cuda(non_blocking=True)
             input_var = torch.autograd.Variable(input, volatile=True)
             target_var = torch.autograd.Variable(target, volatile=True)
 
@@ -173,17 +167,18 @@ def validate(val_loader, model, criterion, log):
 
         if i % args.print_freq == 0:
             output = ('Test : [{0}/{1}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                   i, len(val_loader), batch_time=batch_time, loss=losses,
-                   top1=top1, top5=top5))
+                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                i, len(val_loader), batch_time=batch_time, loss=losses,
+                top1=top1, top5=top5))
             print(output)
             log.write(output + '\n')
             log.flush()
 
     return top1.avg, losses.avg
+
 
 def test(val_loader, model):
     criterion = torch.nn.CrossEntropyLoss().cuda()
@@ -202,7 +197,7 @@ def test(val_loader, model):
     labels = []
     for i, (input, target) in enumerate(val_loader):
         with torch.no_grad():
-            target = target.cuda(async=True)
+            target = target.cuda(non_blocking=True)
             # compute output
             output, _, _, _ = model(input)
             loss = criterion(output, target)
@@ -222,16 +217,16 @@ def test(val_loader, model):
 
         if i % args.print_freq == 0:
             output = ('Test: [{0}/{1}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                   i, len(val_loader), batch_time=batch_time, loss=losses,
-                   top1=top1, top5=top5))
+                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                i, len(val_loader), batch_time=batch_time, loss=losses,
+                top1=top1, top5=top5))
             print(output)
 
     output = ('Testing Results: Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} Loss {loss.avg:.5f}'
-          .format(top1=top1, top5=top5, loss=losses))
+              .format(top1=top1, top5=top5, loss=losses))
     print(output)
 
     outputs = np.concatenate(outputs)
@@ -239,10 +234,7 @@ def test(val_loader, model):
     return outputs, labels
 
 
-
-
-
-def make_train_loader(train_list, model):
+def make_train_loader(train_list, model, list_multiplier=1):
     input_mean = model.input_mean
     input_std = model.input_std
     train_augmentation = model.get_augmentation()
@@ -266,6 +258,10 @@ def make_train_loader(train_list, model):
         prefix = "image_{:04d}.jpg"
     elif ("hmdb" in train_list):
         prefix = "image_{:06d}.jpg"
+    elif "sims" in train_list:
+        prefix = "image_{:05d}.jpg"
+    elif "adl" in train_list:
+        prefix = "image_{:05d}.jpg"
     else:
         prefix = "{:06d}.jpg"
 
@@ -280,10 +276,11 @@ def make_train_loader(train_list, model):
                        Stack(roll=args.arch == 'BNInception'),
                        ToTorchFormatTensor(div=args.arch != 'BNInception'),
                        normalize,
-                   ])),
+                       ]), list_multiplier=list_multiplier),
         batch_size=args.batch_size, shuffle=True,
         num_workers=args.workers, pin_memory=True)
     return train_loader
+
 
 def make_test_loader(test_list, model):
     crop_size = model.crop_size
@@ -310,6 +307,10 @@ def make_test_loader(test_list, model):
         prefix = "image_{:04d}.jpg"
     elif ("hmdb" in test_list):
         prefix = "image_{:06d}.jpg"
+    elif "sims" in test_list:
+        prefix = "image_{:05d}.jpg"
+    elif "adl" in test_list:
+        prefix = "image_{:05d}.jpg"
     else:
         prefix = "{:06d}.jpg"
 
@@ -326,10 +327,11 @@ def make_test_loader(test_list, model):
                        Stack(roll=args.arch == 'BNInception'),
                        ToTorchFormatTensor(div=args.arch != 'BNInception'),
                        normalize,
-                   ])),
+                       ])),
         batch_size=args.batch_size, shuffle=False,
         num_workers=args.workers, pin_memory=True)
     return val_loader
+
 
 def main():
     global best_prec1
@@ -341,12 +343,11 @@ def main():
     args.store_name = args.snapshot_pref
 
     model = models_adv.APN(args.num_class, args.num_segments, args.modality,
-                               base_model=args.arch,
-                               consensus_type=args.consensus_type,
-                               dropout=args.dropout,
-                               img_feature_dim=args.img_feature_dim,
-                               partial_bn=not args.no_partialbn)
-        
+                           base_model=args.arch,
+                           consensus_type=args.consensus_type,
+                           dropout=args.dropout,
+                           img_feature_dim=args.img_feature_dim,
+                           partial_bn=not args.no_partialbn)
 
     policies = model.get_optim_policies()
     model_backup = model
@@ -381,15 +382,14 @@ def main():
                                 weight_decay=args.weight_decay)
 
     scheduler = torch.optim.lr_scheduler.MultiStepLR(optimizer,
-                                                     milestones=[30,60,90,120],
+                                                     milestones=[30, 60, 90, 120],
                                                      gamma=0.1)
 
     test_list = args.test_list.split(" ")
-    train_loader = make_train_loader(args.train_list, model_backup)
+    train_loader = make_train_loader(args.train_list, model_backup, list_multiplier=args.list_multiplier_train)
     val_loader = make_test_loader(args.val_list, model_backup)
     test_loader01 = make_test_loader(test_list[0], model_backup)
     test_loader02 = make_test_loader(test_list[1], model_backup)
-
 
     if args.mode == "test":
         test(val_loader, model)
@@ -411,14 +411,13 @@ def main():
     best_acc = 0
     best_epoch = 0
     for epoch in range(args.start_epoch, args.epochs):
-
         # train for one epoch
         train_acc, train_loss = train(train_loader, model, criterion, optimizer, epoch, log_training, writer)
         writer.add_scalar("Train/acc", train_acc, epoch)
         writer.add_scalar("Train/loss", train_loss, epoch)
         output = "Train Epoch {}: accuracy={:.4f}, loss={:.4f}".format(epoch, train_acc, train_loss)
         print(output)
-        log_training.write(output+'\n')
+        log_training.write(output + '\n')
 
         scheduler.step()
 
@@ -427,7 +426,8 @@ def main():
             val_acc, val_loss = validate(val_loader, model, criterion, log_training)
             test01_acc, test01_loss = validate(test_loader01, model, criterion, log_training)
             test02_acc, test02_loss = validate(test_loader02, model, criterion, log_training)
-            test_acc = (test01_acc*len(test_loader01) + test02_acc*len(test_loader02)) / (len(test_loader01) + len(test_loader02))
+            test_acc = (test01_acc * len(test_loader01) + test02_acc * len(test_loader02)) / (
+                        len(test_loader01) + len(test_loader02))
 
             if test_acc > best_acc:
                 best_acc = test_acc
@@ -435,10 +435,10 @@ def main():
             # remember best prec@1 and save checkpoint
 
             state = {
-                'epoch': epoch,
+                'epoch':      epoch,
                 'state_dict': model.state_dict(),
-                'accuracy': test_acc,
-            }
+                'accuracy':   test_acc,
+                }
             save_file = "{}/model.{}.pth".format(checkpoint_dir, epoch)
             torch.save(state, save_file)
 
@@ -448,10 +448,11 @@ def main():
             writer.add_scalar("Test/acc", test_acc, epoch)
 
             output = ("Test Epoch {}: val_acc={:.4f}, "
-                  "test01_acc={:.4f}, test02_acc={:.4f}, test_acc={:.4f} \n best epoch:{}, best_acc={:.4f}".format(
+                      "test01_acc={:.4f}, test02_acc={:.4f}, test_acc={:.4f} \n best epoch:{}, best_acc={:.4f}".format(
                 epoch, val_acc, test01_acc, test02_acc, test_acc, best_epoch, best_acc))
             print(output)
-            log_training.write(output+'\n')
+            log_training.write(output + '\n')
+
 
 if __name__ == '__main__':
     main()

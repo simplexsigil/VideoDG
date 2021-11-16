@@ -26,7 +26,7 @@ class TSNDataSet(data.Dataset):
     def __init__(self, root_path, list_file,
                  num_segments=3, new_length=1, modality='RGB',
                  image_tmpl='img_{:05d}.jpg', transform=None,
-                 force_grayscale=False, random_shift=True, test_mode=False):
+                 force_grayscale=False, random_shift=True, test_mode=False, list_multiplier=1):
 
         self.root_path = root_path
         self.list_file = list_file
@@ -41,7 +41,7 @@ class TSNDataSet(data.Dataset):
         if self.modality == 'RGBDiff':
             self.new_length += 1# Diff needs one more image to calculate diff
 
-        self._parse_list()
+        self._parse_list(list_multiplier)
 
     def _load_image(self, directory, idx):
         if self.modality == 'RGB' or self.modality == 'RGBDiff':
@@ -52,7 +52,7 @@ class TSNDataSet(data.Dataset):
 
             return [x_img, y_img]
 
-    def _parse_list(self):
+    def _parse_list(self, list_multiplier):
         #tmp = [item for item in tmp if int(item[1])>=3]
         '''
         tmp = [VideoRecord(x.strip().split(' ')) for x in open(self.list_file)]
@@ -61,8 +61,9 @@ class TSNDataSet(data.Dataset):
         '''
         tmp = [x.strip().split(' ') for x in open(self.list_file)]
         tmp = [item for item in tmp if int(item[1])>=17]
+        tmp = tmp * list_multiplier
         self.video_list = [VideoRecord(item) for item in tmp]
-        print('video number:%d'%(len(self.video_list)))
+        print('video number:%d (%d)'%(len(self.video_list), list_multiplier))
 
     def _sample_indices(self, record):
         """
