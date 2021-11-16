@@ -4,7 +4,8 @@ import torch.backends.cudnn as cudnn
 import torch.nn.parallel
 import torch.optim
 from torch.nn.utils import clip_grad_norm_
-from torch.utils.tensorboard import SummaryWriter
+# from torch.utils.tensorboard import SummaryWriter
+from tensorboardX import SummaryWriter
 
 from module import models_adv
 from utils.dataset_ucf101 import TSNDataSet
@@ -75,7 +76,8 @@ def train(train_loader, model, criterion, optimizer, epoch, log, writer):
             adv_target = target.cuda(non_blocking=True)
             adv_target = torch.autograd.Variable(adv_target)
             source_input = input
-            source_input = torch.autograd.Variable(source_input, volatile=True)
+            with torch.no_grad():
+                source_input = torch.autograd.Variable(source_input)
             adv_input = input.clone()
             adv_input = torch.autograd.Variable(adv_input, requires_grad=True)
             # print(adv_input.requires_grad)
