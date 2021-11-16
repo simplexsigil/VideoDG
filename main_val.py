@@ -256,12 +256,15 @@ def test(val_loader, model):
                 top1=top1, top5=top5))
             print(output)
 
-    output = ('Testing Results: Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} Loss {loss.avg:.5f}'
-              .format(top1=top1, top5=top5, loss=losses))
-    print(output)
-
     outputs = np.concatenate(outputs)
     labels = np.concatenate(labels)
+
+    mean_class_acc, class_acc = accuracy_class_wise(outputs, labels, num_class=10)
+
+    output = ('Testing Results: Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f} Loss {loss.avg:.5f} mPCA {mPCA:.5f}'
+              .format(top1=top1, top5=top5, loss=losses, mPCA=mean_class_acc))
+    print(output)
+
     return outputs, labels
 
 
@@ -460,7 +463,7 @@ def main():
             test01_acc, test01_loss = validate(test_loader01, model, criterion, log_training)
             test02_acc, test02_loss = validate(test_loader02, model, criterion, log_training)
             test_acc = (test01_acc * len(test_loader01) + test02_acc * len(test_loader02)) / (
-                        len(test_loader01) + len(test_loader02))
+                    len(test_loader01) + len(test_loader02))
 
             if test_acc > best_acc:
                 best_acc = test_acc
