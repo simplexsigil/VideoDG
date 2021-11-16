@@ -12,6 +12,35 @@ from utils.transforms import *
 from utils.utils import *
 
 
+def prepare_cuda(device_ids):
+    global gpu_count
+    if device_ids is not None:
+        # NVIDIA-SMI uses PCI_BUS_ID device order, but CUDA orders graphics devices by speed by default (fastest first).
+        os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
+        os.environ["CUDA_VISIBLE_DEVICES"] = ",".join([str(dev_id) for dev_id in device_ids])
+
+        print('Cuda visible devices: {}'.format(os.environ["CUDA_VISIBLE_DEVICES"]))
+    gpu_count = torch.cuda.device_count()
+    print('Available device count: {}'.format(gpu_count))
+
+    device_ids = list(range(torch.cuda.device_count()))  # The device ids restart from 0 on the visible devices.
+
+    print("Note: Device ids are reindexed on the visible devices and might not be the same as in nvidia-smi.")
+
+    for i in device_ids:
+        print("Using Cuda device {}: {}".format(i, torch.cuda.get_device_name(i)))
+
+    print("Cuda is available: {}".format(torch.cuda.is_available()))
+
+    cudev = torch.device('cuda')
+
+    np.random.seed(1)
+    torch.manual_seed(1)
+    torch.cuda.manual_seed_all(1)
+
+    return cudev, device_ids
+
+
 def train(train_loader, model, criterion, optimizer, epoch, log, writer):
     batch_time = AverageMeter()
     data_time = AverageMeter()
@@ -336,6 +365,8 @@ def make_test_loader(test_list, model):
 def main():
     global best_prec1
     check_rootfolders()
+
+    _, args.gpus = prepare_cuda(args.gpus)
 
     args.store_name = '_'.join(
         ['APN', args.dataset, args.modality, args.arch, args.consensus_type, 'segment%d' % args.num_segments])
