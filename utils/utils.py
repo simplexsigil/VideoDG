@@ -124,21 +124,27 @@ def accuracy(output, target, topk=(1,)):
 def accuracy_class_wise(output, target, num_class=10):
     """Computes the precision@k for the specified values of k for each class separately"""
     maxk = 1
-    batch_size = target.size(0)
-    classes, class_sizes = np.unique(return_counts=True)
+    batch_size = target.shape[0]
+    classes, class_sizes = np.unique(target, return_counts=True)
 
-    _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
+    pred = np.argsort(output, axis=1)[:,-1:]  # output.topk(maxk, 1, True, True)
+    pred = pred.transpose()
+ #   print(type(pred))
+#    print(type(target))
+    correct = np.equal(pred, np.broadcast_to(target.reshape(1, -1), pred.shape))
 
     class_correct = np.zeros(num_class)
     class_size = np.zeros(num_class)
-
-    for c, t in zip(correct[:1], target):
+    
+    # print(correct)
+    # print(target)
+    for c, t in zip(correct[0], target):
+        # print(c)
+        # print(t)
         class_correct[t] += 1 if c else 0
-        class_size += 1
-
-    assert class_size == class_sizes
+        class_size[t] += 1
+    # print(class_size, class_sizes)
+    assert np.all(class_size == class_sizes)
 
     class_acc = class_correct / class_size
 
